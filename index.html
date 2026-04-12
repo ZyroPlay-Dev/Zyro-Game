@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -41,6 +42,30 @@ canvas {
   background:#ff5722;
 }
 
+.topBar {
+  display:flex;
+  justify-content:space-between;
+  padding:10px 20px;
+  font-size:18px;
+  font-weight:bold;
+}
+
+.topBar div {
+  padding:8px 15px;
+  border-radius:20px;
+  background:rgba(255,255,255,0.1);
+  box-shadow:0 0 10px rgba(255,255,255,0.3);
+  cursor:pointer;
+}
+
+.gameStats {
+  display:flex;
+  justify-content:space-around;
+  margin:15px;
+  font-size:18px;
+  font-weight:bold;
+}
+
 .sidebar {
   position: fixed;
   top: 0;
@@ -49,94 +74,115 @@ canvas {
   background: #111;
   padding: 20px;
   transition: 0.3s;
+  z-index:999;
+  overflow-y:auto;
 }
 
 #settingsPanel { right: -300px; }
+#walletPanel { left: -300px; }
 
-.closeBtn { color:red; cursor:pointer; }
+.closeBtn {
+  color:red;
+  cursor:pointer;
+}
+
+table {
+  width:70%;
+  margin:auto;
+}
+
+.status {
+  font-weight:bold;
+  padding:6px 12px;
+  border-radius:10px;
+  display:inline-block;
+}
 </style>
+
 </head>
 
 <body>
 
 <h2>Running Game</h2>
 
-<!-- LOGIN -->
 <div id="loginPage">
 <input id="loginEmail" placeholder="Email">
-
-<div style="position:relative;width:85%;margin:auto;">
 <input id="loginPassword" type="password" placeholder="Password">
-<i class="fa-solid fa-eye" onclick="togglePassword('loginPassword',this)"
-style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;"></i>
-</div>
-
 <button onclick="login()">Login</button>
 <button onclick="showSignup()">Signup</button>
 </div>
 
-<!-- SIGNUP -->
 <div id="signupPage" style="display:none;">
 <input id="name" placeholder="Name">
 <input id="email" placeholder="Email">
 <input id="phone" placeholder="Phone">
-
-<div style="position:relative;width:85%;margin:auto;">
 <input id="password" type="password" placeholder="Password">
-<i class="fa-solid fa-eye" onclick="togglePassword('password',this)"
-style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:pointer;"></i>
-</div>
-
 <button onclick="signup()">Create Account</button>
 <button onclick="showLogin()">Back</button>
 </div>
 
-<!-- GAME -->
 <div id="gameUI" style="display:none;">
-<p>Name: <span id="playerName"></span></p>
-<p>Total Score: <span id="totalScore">0</span></p>
-<p>Score: <span id="score">0</span></p>
+<div class="topBar">
+  <div onclick="openWallet()">💰 Wallet</div>
+  <div onclick="openSettings()">⚙ Settings</div>
+</div>
+
+<div class="gameStats">
+  <div>Name: <span id="playerName"></span></div>
+  <div>Rank: <span id="myRank">-</span></div>
+  <div>Total: <span id="totalScore">0</span></div>
+  <div>Score: <span id="score">0</span></div>
+</div>
 
 <canvas id="gameCanvas" width="400" height="200"></canvas>
+
 </div>
 
 <button id="jumpBtn" style="display:none;">JUMP</button>
 
-<!-- SETTINGS -->
 <div id="settingsPanel" class="sidebar">
 <span class="closeBtn" onclick="closeSettings()">❌</span>
 
-<h3>Settings</h3>
-
+<h3>⚙ Settings</h3>
 <p>Name: <span id="sName"></span></p>
 <p>Email: <span id="sEmail"></span></p>
 <p>Phone: <span id="sPhone"></span></p>
 
 <input id="newName" placeholder="New Name">
 <input id="newPhone" placeholder="New Phone">
-<input id="newPassword" placeholder="New Password">
+<input id="newPassword" type="password" placeholder="New Password">
 
 <button onclick="updateProfile()">Update</button>
 
 <hr>
-
-<h3>Reset Password</h3>
-<input id="resetEmail" placeholder="Enter your email">
-<button onclick="resetPassword()">Send Reset Link</button>
-
-<hr>
-
 <button onclick="logout()">Logout</button>
 </div>
 
-<script type="module">
+<div id="walletPanel" class="sidebar">
+<span class="closeBtn" onclick="closeWallet()">❌</span>
 
+<h3>💰 Wallet</h3>
+<p>Name: <span id="walletName"></span></p>
+<p>Rank: <span id="walletRank"></span></p>
+<p>Email: <span id="walletEmail"></span></p>
+<p>Phone: <span id="walletPhone"></span></p>
+
+<p id="walletStatus">Status: Not Submitted</p>
+
+<input id="upiId" placeholder="Enter UPI ID">
+<button onclick="saveUPI()">Save UPI</button>
+</div>
+
+<h3>Leaderboard</h3>
+<table id="leaderboard"></table>
+
+<script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBBUUbHGaMyuf8OXSAFfeb6OvlgVtHpGy0",
+apiKey: "AIzaSyBBUUbHGaMyuf8OXSAFfeb6OvlgVtHpGy0",
   authDomain: "zyro-play-studio.firebaseapp.com",
   projectId: "zyro-play-studio"
 };
@@ -146,139 +192,209 @@ const auth = getAuth(app);
 const db = getFirestore(app);
 
 let user;
+let gameRunning=false;
 
-/* PASSWORD TOGGLE */
-window.togglePassword = (id, icon) => {
-  const input = document.getElementById(id);
-  if (input.type === "password") {
-    input.type = "text";
-    icon.classList.replace("fa-eye", "fa-eye-slash");
-  } else {
-    input.type = "password";
-    icon.classList.replace("fa-eye-slash", "fa-eye");
-  }
-};
+/* NAVIGATION */
+window.showSignup=()=>{loginPage.style.display="none";signupPage.style.display="block";}
+window.showLogin=()=>{loginPage.style.display="block";signupPage.style.display="none";}
+
+window.openSettings=()=>{walletPanel.style.left="-300px";settingsPanel.style.right="0";}
+window.openWallet=()=>{settingsPanel.style.right="-300px";walletPanel.style.left="0";}
+window.closeSettings=()=>settingsPanel.style.right="-300px";
+window.closeWallet=()=>walletPanel.style.left="-300px";
 
 /* SIGNUP */
 window.signup = async () => {
-  try {
-    const userName = document.getElementById("name").value.trim();
-    const userEmail = document.getElementById("email").value.trim();
-    const userPhone = document.getElementById("phone").value.trim();
-    const userPassword = document.getElementById("password").value;
+ try {
+   if(!name.value || !email.value || !phone.value || !password.value){
+     return alert("All fields required ❌");
+   }
 
-    if (!userName || !userEmail || !userPhone || !userPassword) {
-      alert("All fields are required ❌");
-      return;
-    }
+   let res = await createUserWithEmailAndPassword(auth,email.value,password.value);
+   user = res.user;
 
-    const res = await createUserWithEmailAndPassword(auth, userEmail, userPassword);
-    user = res.user;
+   await setDoc(doc(db,"users",user.uid),{
+     name:name.value,
+     email:email.value,
+     phone:phone.value,
+     score:0,
+     upiStatus:"not submitted"
+   });
 
-    await setDoc(doc(db, "users", user.uid), {
-      name: userName,
-      email: userEmail,
-      phone: userPhone,
-      score: 0,
-      upiStatus: "not submitted"
-    });
+   alert("Account Created");
+   showLogin();
 
-    alert("Account Created Successfully 🎉");
-    showLogin();
-
-  } catch (e) {
-    console.error(e);
-    alert(e.message);
-  }
+ } catch(e) {
+   if (e.code === "auth/email-already-in-use") {
+     alert("This email is already registered ❌");
+   } else {
+     alert(e.message);
+   }
+ }
 };
 
 /* LOGIN */
 window.login = async () => {
-  try {
-    const userEmail = document.getElementById("loginEmail").value.trim();
-    const userPassword = document.getElementById("loginPassword").value;
+ try {
+   let res = await signInWithEmailAndPassword(auth,loginEmail.value,loginPassword.value);
+   user = res.user;
 
-    if (!userEmail || !userPassword) {
-      alert("Enter email and password ❌");
-      return;
-    }
+   let snap = await getDoc(doc(db,"users",user.uid));
+   let d = snap.data();
 
-    const res = await signInWithEmailAndPassword(auth, userEmail, userPassword);
-    user = res.user;
+   playerName.innerText=d.name;
+   totalScore.innerText=d.score;
 
-    let snap = await getDoc(doc(db, "users", user.uid));
-    let d = snap.data();
+   sName.innerText=d.name;
+   sEmail.innerText=d.email;
+   sPhone.innerText=d.phone;
 
-    playerName.innerText = d.name || "-";
-    totalScore.innerText = d.score || 0;
+   walletName.innerText=d.name;
+   walletEmail.innerText=d.email;
+   walletPhone.innerText=d.phone;
 
-    sName.innerText = d.name || "-";
-    sEmail.innerText = d.email || "-";
-    sPhone.innerText = d.phone || "-";
+   updateStatusUI(d.upiStatus);
 
-    resetEmail.value = d.email || "";
+   loginPage.style.display="none";
+   gameUI.style.display="block";
+   jumpBtn.style.display="block";
 
-    loginPage.style.display = "none";
-    gameUI.style.display = "block";
-    jumpBtn.style.display = "block";
+   leaderboardLive();
+   userLiveData();
+   startGame();
 
-    startGame();
-
-  } catch (e) {
-    if (e.code === "auth/user-not-found") {
-      alert("Email not registered ❌");
-    } else if (e.code === "auth/wrong-password") {
-      alert("Wrong password ❌");
-    } else {
-      alert("Invalid email or password ❌");
-    }
-  }
-};
-
-/* RESET PASSWORD */
-window.resetPassword = async () => {
-  try {
-    const emailValue = document.getElementById("resetEmail").value.trim();
-    if (!emailValue) return alert("Enter email ❌");
-
-    await sendPasswordResetEmail(auth, emailValue);
-    alert("Reset link sent 📩");
-
-  } catch (e) {
-    alert(e.message);
-  }
+ } catch(e){
+   alert("Invalid email or password ❌");
+ }
 };
 
 /* LOGOUT */
-window.logout = async () => {
-  await signOut(auth);
-  location.reload();
+window.logout=async()=>{
+ await signOut(auth);
+ location.reload();
 };
 
-/* SIMPLE GAME */
-function startGame(){
- let ctx=gameCanvas.getContext("2d");
- let y=150,vy=0,obs=400,scoreVal=0;
+/* UPDATE PROFILE */
+window.updateProfile=async()=>{
+ try{
+   let ref=doc(db,"users",user.uid);
+   let updates={};
 
- jumpBtn.onclick=()=>{if(y>=150)vy=-10};
+   if(newName.value) updates.name=newName.value;
+   if(newPhone.value) updates.phone=newPhone.value;
+
+   if(Object.keys(updates).length>0){
+     await updateDoc(ref,updates);
+   }
+
+   if(newPassword.value){
+     await updatePassword(auth.currentUser,newPassword.value);
+   }
+
+   let snap = await getDoc(ref);
+   let d = snap.data();
+
+   playerName.innerText=d.name;
+   sName.innerText=d.name;
+   sPhone.innerText=d.phone;
+   walletName.innerText=d.name;
+   walletPhone.innerText=d.phone;
+
+   alert("Updated Successfully");
+
+ }catch(e){
+   alert(e.message);
+ }
+};
+
+/* WALLET */
+window.saveUPI=async()=>{
+ if(!upiId.value){
+   return alert("Enter UPI ID ❌");
+ }
+
+ await updateDoc(doc(db,"users",user.uid),{
+   upiId:upiId.value,
+   upiStatus:"pending"
+ });
+
+ updateStatusUI("pending");
+ alert("UPI Saved ✅");
+};
+
+function updateStatusUI(status){
+ status=(status||"not submitted").toLowerCase();
+
+ let text="Not Submitted",color="#ccc";
+ if(status==="pending"){text="⏳ Pending";color="orange";}
+ if(status==="approved"){text="🟢 Approved";color="lime";}
+ if(status==="rejected"){text="❌ Rejected";color="red";}
+ if(status==="paid"){text="💰 Paid";color="cyan";}
+
+ walletStatus.innerHTML=`Status: <span class="status" style="color:${color}">${text}</span>`;
+}
+
+function userLiveData(){
+ onSnapshot(doc(db,"users",user.uid),(snap)=>{
+   let d=snap.data();
+   updateStatusUI(d.upiStatus);
+
+   playerName.innerText=d.name;
+   totalScore.innerText=d.score;
+   sName.innerText=d.name;
+   sPhone.innerText=d.phone;
+   walletName.innerText=d.name;
+   walletPhone.innerText=d.phone;
+ });
+}
+
+/* LEADERBOARD */
+function leaderboardLive(){
+ const q=query(collection(db,"users"),orderBy("score","desc"));
+ onSnapshot(q,(snap)=>{
+  leaderboard.innerHTML="<tr><th>Rank</th><th>Name</th><th>Score</th></tr>";
+  let r=1;
+  snap.forEach(docSnap=>{
+    let d=docSnap.data();
+    leaderboard.innerHTML+=`<tr><td>${r}</td><td>${d.name}</td><td>${d.score||0}</td></tr>`;
+    if(user && docSnap.id===user.uid){
+      myRank.innerText=r;
+      walletRank.innerText=r;
+    }
+    r++;
+  });
+ });
+}
+
+/* GAME */
+function startGame(){
+ gameRunning=true;
+ let ctx=gameCanvas.getContext("2d");
+ let p={x:50,y:150,vy:0},o={x:400},scoreVal=0;
+
+ jumpBtn.onclick=()=>{ if(p.y>=150) p.vy=-10; };
 
  function loop(){
+  if(!gameRunning) return;
+
   ctx.clearRect(0,0,400,200);
 
-  vy+=0.5;
-  y+=vy;
-  if(y>150){y=150;vy=0;}
+  p.vy+=0.5;
+  p.y+=p.vy;
+  if(p.y>150){p.y=150;p.vy=0;}
 
-  ctx.fillRect(50,y,20,20);
+  ctx.fillRect(p.x,p.y,20,20);
 
-  obs-=5;
-  if(obs<0){obs=400;scoreVal++;score.innerText=scoreVal;}
+  o.x-=5;
+  if(o.x<0){o.x=400;scoreVal++;score.innerText=scoreVal;}
 
-  ctx.fillRect(obs,150,20,20);
+  ctx.fillRect(o.x,150,20,20);
 
-  if(obs<70 && y>130){
-   alert("Game Over");
-   return;
+  if(o.x<70 && p.y>130){
+    gameRunning=false;
+    saveScore(scoreVal);
+    setTimeout(startGame,1000);
+    return;
   }
 
   requestAnimationFrame(loop);
@@ -286,11 +402,13 @@ function startGame(){
  loop();
 }
 
-window.showSignup=()=>{loginPage.style.display="none";signupPage.style.display="block";}
-window.showLogin=()=>{loginPage.style.display="block";signupPage.style.display="none";}
-window.closeSettings=()=>settingsPanel.style.right="-300px";
-window.openSettings=()=>settingsPanel.style.right="0";
-
+async function saveScore(newScore){
+ let ref=doc(db,"users",user.uid);
+ let snap=await getDoc(ref);
+ let updated=(snap.data().score||0)+newScore;
+ await updateDoc(ref,{score:updated});
+ totalScore.innerText=updated;
+}
 </script>
 
 </body>
