@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -42,30 +41,6 @@ canvas {
   background:#ff5722;
 }
 
-/* TOP BAR */
-.topBar {
-  display:flex;
-  justify-content:space-between;
-  padding:10px 20px;
-  font-weight:bold;
-}
-
-.topBar div {
-  padding:8px 15px;
-  border-radius:20px;
-  background:rgba(255,255,255,0.1);
-  cursor:pointer;
-}
-
-/* GAME STATS */
-.gameStats {
-  display:flex;
-  justify-content:space-around;
-  margin:15px;
-  font-weight:bold;
-}
-
-/* SIDEBARS */
 .sidebar {
   position: fixed;
   top: 0;
@@ -74,17 +49,11 @@ canvas {
   background: #111;
   padding: 20px;
   transition: 0.3s;
-  z-index:999;
 }
 
-#settingsPanel { right:-300px; }
-#walletPanel { left:-300px; }
+#settingsPanel { right: -300px; }
 
-.closeBtn {
-  color:red;
-  font-size:20px;
-  cursor:pointer;
-}
+.closeBtn { color:red; cursor:pointer; }
 </style>
 </head>
 
@@ -122,19 +91,11 @@ style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:po
 <button onclick="showLogin()">Back</button>
 </div>
 
-<!-- GAME UI -->
+<!-- GAME -->
 <div id="gameUI" style="display:none;">
-
-<div class="topBar">
-  <div onclick="openWallet()">💰 Wallet</div>
-  <div onclick="openSettings()">⚙ Settings</div>
-</div>
-
-<div class="gameStats">
-  <div>Name: <span id="playerName"></span></div>
-  <div>Total: <span id="totalScore">0</span></div>
-  <div>Score: <span id="score">0</span></div>
-</div>
+<p>Name: <span id="playerName"></span></p>
+<p>Total Score: <span id="totalScore">0</span></p>
+<p>Score: <span id="score">0</span></p>
 
 <canvas id="gameCanvas" width="400" height="200"></canvas>
 </div>
@@ -145,7 +106,7 @@ style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:po
 <div id="settingsPanel" class="sidebar">
 <span class="closeBtn" onclick="closeSettings()">❌</span>
 
-<h3>⚙ Settings</h3>
+<h3>Settings</h3>
 
 <p>Name: <span id="sName"></span></p>
 <p>Email: <span id="sEmail"></span></p>
@@ -166,22 +127,6 @@ style="position:absolute;right:15px;top:50%;transform:translateY(-50%);cursor:po
 <hr>
 
 <button onclick="logout()">Logout</button>
-</div>
-
-<!-- WALLET -->
-<div id="walletPanel" class="sidebar">
-<span class="closeBtn" onclick="closeWallet()">❌</span>
-
-<h3>💰 Wallet</h3>
-
-<p>Name: <span id="walletName"></span></p>
-<p>Email: <span id="walletEmail"></span></p>
-<p>Phone: <span id="walletPhone"></span></p>
-
-<p id="walletStatus">Status: Not Submitted</p>
-
-<input id="upiId" placeholder="Enter UPI ID">
-<button onclick="saveUPI()">Save UPI</button>
 </div>
 
 <script type="module">
@@ -205,119 +150,112 @@ let user;
 /* PASSWORD TOGGLE */
 window.togglePassword = (id, icon) => {
   const input = document.getElementById(id);
-  input.type = input.type === "password" ? "text" : "password";
+  if (input.type === "password") {
+    input.type = "text";
+    icon.classList.replace("fa-eye", "fa-eye-slash");
+  } else {
+    input.type = "password";
+    icon.classList.replace("fa-eye-slash", "fa-eye");
+  }
 };
-
-/* NAVIGATION */
-window.showSignup=()=>{loginPage.style.display="none";signupPage.style.display="block";}
-window.showLogin=()=>{loginPage.style.display="block";signupPage.style.display="none";}
-
-window.openSettings=()=>{walletPanel.style.left="-300px";settingsPanel.style.right="0";}
-window.openWallet=()=>{settingsPanel.style.right="-300px";walletPanel.style.left="0";}
-window.closeSettings=()=>settingsPanel.style.right="-300px";
-window.closeWallet=()=>walletPanel.style.left="-300px";
 
 /* SIGNUP */
 window.signup = async () => {
-  const res = await createUserWithEmailAndPassword(auth,email.value,password.value);
-  user = res.user;
+  try {
+    const userName = document.getElementById("name").value.trim();
+    const userEmail = document.getElementById("email").value.trim();
+    const userPhone = document.getElementById("phone").value.trim();
+    const userPassword = document.getElementById("password").value;
 
-  await setDoc(doc(db,"users",user.uid),{
-    name:name.value,
-    email:email.value,
-    phone:phone.value,
-    score:0,
-    upiStatus:"not submitted"
-  });
+    if (!userName || !userEmail || !userPhone || !userPassword) {
+      alert("All fields are required ❌");
+      return;
+    }
 
-  alert("Account Created");
-  showLogin();
+    const res = await createUserWithEmailAndPassword(auth, userEmail, userPassword);
+    user = res.user;
+
+    await setDoc(doc(db, "users", user.uid), {
+      name: userName,
+      email: userEmail,
+      phone: userPhone,
+      score: 0,
+      upiStatus: "not submitted"
+    });
+
+    alert("Account Created Successfully 🎉");
+    showLogin();
+
+  } catch (e) {
+    console.error(e);
+    alert(e.message);
+  }
 };
 
 /* LOGIN */
 window.login = async () => {
-  const res = await signInWithEmailAndPassword(auth,loginEmail.value,loginPassword.value);
-  user = res.user;
+  try {
+    const userEmail = document.getElementById("loginEmail").value.trim();
+    const userPassword = document.getElementById("loginPassword").value;
 
-  let snap = await getDoc(doc(db,"users",user.uid));
-  let d = snap.data();
+    if (!userEmail || !userPassword) {
+      alert("Enter email and password ❌");
+      return;
+    }
 
-  playerName.innerText=d.name;
-  totalScore.innerText=d.score;
+    const res = await signInWithEmailAndPassword(auth, userEmail, userPassword);
+    user = res.user;
 
-  sName.innerText=d.name;
-  sEmail.innerText=d.email;
-  sPhone.innerText=d.phone;
+    let snap = await getDoc(doc(db, "users", user.uid));
+    let d = snap.data();
 
-  walletName.innerText=d.name;
-  walletEmail.innerText=d.email;
-  walletPhone.innerText=d.phone;
+    playerName.innerText = d.name || "-";
+    totalScore.innerText = d.score || 0;
 
-  resetEmail.value=d.email;
+    sName.innerText = d.name || "-";
+    sEmail.innerText = d.email || "-";
+    sPhone.innerText = d.phone || "-";
 
-  updateStatusUI(d.upiStatus);
+    resetEmail.value = d.email || "";
 
-  loginPage.style.display="none";
-  gameUI.style.display="block";
-  jumpBtn.style.display="block";
+    loginPage.style.display = "none";
+    gameUI.style.display = "block";
+    jumpBtn.style.display = "block";
 
-  startGame();
-};
+    startGame();
 
-/* WALLET STATUS */
-function updateStatusUI(status){
-  status=(status||"not submitted").toLowerCase();
-  let text="Not Submitted", color="gray";
-
-  if(status==="approved"){text="Approved";color="lime";}
-  else if(status==="rejected"){text="Rejected";color="red";}
-  else if(status==="paid"){text="Paid";color="cyan";}
-  else if(status==="pending"){text="Pending";color="orange";}
-
-  walletStatus.innerHTML=`Status: <span style="color:${color}">${text}</span>`;
-}
-
-/* SAVE UPI */
-window.saveUPI = async ()=>{
-  await updateDoc(doc(db,"users",user.uid),{
-    upiId:upiId.value,
-    upiStatus:"pending"
-  });
-  alert("UPI Saved ✅");
+  } catch (e) {
+    if (e.code === "auth/user-not-found") {
+      alert("Email not registered ❌");
+    } else if (e.code === "auth/wrong-password") {
+      alert("Wrong password ❌");
+    } else {
+      alert("Invalid email or password ❌");
+    }
+  }
 };
 
 /* RESET PASSWORD */
-window.resetPassword = async ()=>{
-  await sendPasswordResetEmail(auth,resetEmail.value);
-  alert("Reset link sent");
-};
+window.resetPassword = async () => {
+  try {
+    const emailValue = document.getElementById("resetEmail").value.trim();
+    if (!emailValue) return alert("Enter email ❌");
 
-/* UPDATE PROFILE */
-window.updateProfile = async ()=>{
-  let ref=doc(db,"users",user.uid);
-  let updates={};
+    await sendPasswordResetEmail(auth, emailValue);
+    alert("Reset link sent 📩");
 
-  if(newName.value) updates.name=newName.value;
-  if(newPhone.value) updates.phone=newPhone.value;
-
-  if(Object.keys(updates).length>0){
-    await updateDoc(ref,updates);
+  } catch (e) {
+    alert(e.message);
   }
-
-  if(newPassword.value){
-    await updatePassword(auth.currentUser,newPassword.value);
-  }
-
-  alert("Updated");
 };
 
 /* LOGOUT */
-window.logout = async ()=>{
+window.logout = async () => {
   await signOut(auth);
   location.reload();
 };
 
-/* GAME */
+/* SIMPLE GAME */
 function startGame(){
  let ctx=gameCanvas.getContext("2d");
  let y=150,vy=0,obs=400,scoreVal=0;
@@ -347,8 +285,13 @@ function startGame(){
  }
  loop();
 }
+
+window.showSignup=()=>{loginPage.style.display="none";signupPage.style.display="block";}
+window.showLogin=()=>{loginPage.style.display="block";signupPage.style.display="none";}
+window.closeSettings=()=>settingsPanel.style.right="-300px";
+window.openSettings=()=>settingsPanel.style.right="0";
+
 </script>
 
 </body>
 </html>
-
