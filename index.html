@@ -240,7 +240,7 @@ function startGame(){
 jumpBtn.onclick=jump;
 
 // 📱 Mobile touch
-window.addEventListener("touchstart",(e)=>{ e.preventDefault(); jump(); },{passive:false});
+gameCanvas.addEventListener("touchstart",(e)=>{ e.preventDefault(); jump(); },{passive:false});
 
 // 💻 PC keyboard (space)
 window.addEventListener("keydown",(e)=>{
