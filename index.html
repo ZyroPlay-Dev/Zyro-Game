@@ -236,7 +236,16 @@ document.addEventListener("click",outsideClick);
 function startGame(){
  let ctx=gameCanvas.getContext("2d");
  let p={x:50,y:150,vy:0},o={x:400},scoreVal=0;
- jumpBtn.onclick=()=>{ if(p.y>=150) p.vy=-10; };
+ function jump(){ if(p.y>=150) p.vy=-10; }
+jumpBtn.onclick=jump;
+
+// 📱 Mobile touch
+window.addEventListener("touchstart",jump);
+
+// 💻 PC keyboard (space)
+window.addEventListener("keydown",(e)=>{
+ if(e.code==="Space") jump();
+});
  function loop(){
   ctx.clearRect(0,0,400,200);
   p.vy+=0.5; p.y+=p.vy;
