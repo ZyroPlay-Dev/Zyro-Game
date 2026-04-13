@@ -9,7 +9,7 @@ body { margin:0; font-family:Poppins; background:linear-gradient(135deg,#1e3c72,
 input,button { margin:8px auto; padding:12px; width:85%; border-radius:10px; border:none; }
 button { background:#ff9800; color:white; }
 canvas { border-radius:15px; width:95%; max-width:400px; }
-#jumpBtn { position:fixed; bottom:20px; right:20px; width:70px; height:70px; border-radius:50%; background:#ff5722; }
+#jumpBtn { position:fixed; bottom:20px; right:2000px; width:0px; height:0px; border-radius:1%; background:#ff5722; }
 .topBar { display:flex; justify-content:space-between; padding:10px 20px; font-size:18px; font-weight:bold; }
 .topBar div { padding:8px 15px; border-radius:20px; background:rgba(255,255,255,0.1); box-shadow:0 0 10px rgba(255,255,255,0.3); cursor:pointer; }
 .gameStats { display:flex; justify-content:space-around; margin:15px; font-size:18px; font-weight:bold; }
@@ -69,6 +69,8 @@ th,td { padding:6px; }
 
 <button id="jumpBtn" style="display:none;">JUMP</button>
 
+
+
 <div id="settingsPanel" class="sidebar" onclick="event.stopPropagation()">
 <span class="closeBtn" onclick="closeSettings()">❌</span>
 <h3>⚙ Settings</h3>
@@ -105,6 +107,8 @@ const app = initializeApp({ apiKey:"AIzaSyBBUUbHGaMyuf8OXSAFfeb6OvlgVtHpGy0", au
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+const gameCanvas = document.getElementById("gameCanvas");
+const score = document.getElementById("score");
 let user;
 
 window.showSignup=()=>{loginPage.style.display="none";signupPage.style.display="block";}
@@ -237,7 +241,10 @@ function startGame(){
  let ctx=gameCanvas.getContext("2d");
  let p={x:50,y:150,vy:0},o={x:400},scoreVal=0;
  function jump(){ if(p.y>=150) p.vy=-10; }
-jumpBtn.onclick=jump;
+
+const jumpBtn = document.getElementById("jumpBtn");
+jumpBtn.onclick = jump;
+
 
 // 📱 Mobile touch
 gameCanvas.addEventListener("touchstart",(e)=>{ e.preventDefault(); jump(); },{passive:false});
@@ -268,5 +275,105 @@ async function saveScore(s){
  totalScore.innerText=updated;
 }
 </script>
+<!-- 🔔 Notification Button -->
+<div id="notifyBtn" style="position:fixed;top:100px;right:20px;width:60px;height:60px;background:#ff5722;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:grab;z-index:1000;">
+🔔 <span id="notifyCount" style="position:absolute;top:-5px;right:-5px;background:red;border-radius:50%;padding:2px 6px;font-size:12px;">0</span>
+</div>
+
+<audio id="notifySound" src="https://www.soundjay.com/buttons/sounds/button-3.mp3"></audio>
+
+<script>
+// 🔔 Google Sheet URL (PUT YOUR URL HERE)
+const SHEET_URL = "https://script.google.com/macros/s/AKfycbzgyYWdCJ4r2h-vqP_FgYd8DcQmm_VUCDb2jOrHdF3rV3uH2txBUkCzDFp69sLXu0y1HQ/exec";
+
+let notifyBtn = document.getElementById("notifyBtn");
+let notifyCount = document.getElementById("notifyCount");
+let notifySound = document.getElementById("notifySound");
+
+// 🔔 Notification panel
+let panel = document.createElement("div");
+panel.id = "notifyPanel";
+panel.style = "position:fixed;top:80px;right:20px;width:260px;max-height:300px;overflow:auto;background:#111;color:#fff;border-radius:10px;padding:10px;display:none;z-index:1000;";
+panel.innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;">
+<b>Notifications</b>
+<span id="closePanel" style="cursor:pointer;color:red;">❌</span>
+</div>
+<button id="markRead" style="margin:5px 0;background:#4caf50;">Mark as Read</button>
+<div id="notifyList"></div>`;
+document.body.appendChild(panel);
+
+let notifyList = document.getElementById("notifyList");
+let count = 0;
+
+// 🔊 Fetch notifications
+async function fetchNotifications(){
+ try{
+  let res = await fetch(SHEET_URL);
+  let data = await res.json();
+
+  if(data.length > count){
+    count = data.length;
+    notifyCount.innerText = count;
+    notifySound.play();
+
+    // 📳 vibration (mobile)
+    if(navigator.vibrate){ navigator.vibrate(200); }
+
+    renderNotifications(data);
+  }
+ }catch(e){ console.log("Sheet error",e); }
+}
+
+function renderNotifications(data){
+ notifyList.innerHTML = "";
+ data.reverse().forEach(n=>{
+  notifyList.innerHTML += `<div style="padding:5px;border-bottom:1px solid #333;">${n.message || JSON.stringify(n)}</div>`;
+ });
+}
+
+setInterval(fetchNotifications,5000);
+
+// 🔘 Toggle open/close
+notifyBtn.onclick = (e)=>{
+ e.stopPropagation();
+ panel.style.display = panel.style.display==="block" ? "none" : "block";
+};
+
+document.getElementById("closePanel").onclick = ()=> panel.style.display="none";
+
+// ❌ click outside close
+window.addEventListener("click",(e)=>{
+ if(!panel.contains(e.target) && !notifyBtn.contains(e.target)){
+  panel.style.display="none";
+ }
+});
+
+// ✅ Mark as read
+document.getElementById("markRead").onclick = ()=>{
+ count = 0;
+ notifyCount.innerText = "0";
+};
+
+// 🚫 Hide on login/signup
+function toggleNotifyVisibility(){
+ if(document.getElementById("loginPage").style.display!=="none" || document.getElementById("signupPage").style.display!=="none"){
+  notifyBtn.style.display="none";
+  panel.style.display="none";
+ }else{
+  notifyBtn.style.display="flex";
+ }
+}
+setInterval(toggleNotifyVisibility,500);
+
+// 🟢 Drag feature (same)
+let isDragging=false,offsetX,offsetY;
+notifyBtn.addEventListener("touchstart",(e)=>{isDragging=true;offsetX=e.touches[0].clientX-notifyBtn.offsetLeft;offsetY=e.touches[0].clientY-notifyBtn.offsetTop;});
+notifyBtn.addEventListener("touchmove",(e)=>{if(!isDragging)return;notifyBtn.style.left=(e.touches[0].clientX-offsetX)+"px";notifyBtn.style.top=(e.touches[0].clientY-offsetY)+"px";});
+notifyBtn.addEventListener("touchend",()=>isDragging=false);
+notifyBtn.addEventListener("mousedown",(e)=>{isDragging=true;offsetX=e.clientX-notifyBtn.offsetLeft;offsetY=e.clientY-notifyBtn.offsetTop;});
+document.addEventListener("mousemove",(e)=>{if(!isDragging)return;notifyBtn.style.left=(e.clientX-offsetX)+"px";notifyBtn.style.top=(e.clientY-offsetY)+"px";});
+document.addEventListener("mouseup",()=>isDragging=false);
+</script>
+
 </body>
 </html>
